@@ -13,7 +13,7 @@ import { expectDeployed } from "./../scripts/utilities/expectDeployed";
 
 import { getSelectors, FacetCutAction } from "./../scripts/libraries/diamond"
 
-describe("DiamondTest", async function () {
+describe("Diamond", async function () {
   const [deployer, owner, user] = provider.getWallets();
   let artifacts: ArtifactImports;
 
@@ -517,12 +517,10 @@ describe("DiamondTest", async function () {
       expect(response[0]).eq("0x");
       expect(response[1]).eq("0x");
       expect(response[2]).eq("0x");
-      let r1 = response[3].substring(response[3].length-40).toLowerCase(); // returned as bytes32. extract address
-      let o1 = owner.address.substring(owner.address.length-40).toLowerCase();
-      expect(r1).eq(o1);
-      let r2 = response[5].substring(response[5].length-40).toLowerCase(); // returned as bytes32. extract address
-      let o2 = user.address.substring(user.address.length-40).toLowerCase();
-      expect(r2).eq(o2);
+      expect(response[4]).eq("0x");
+      const toAddress = (s:string) => ethers.utils.getAddress(`0x${s.substring(s.length-40)}`); // bytes32 to address
+      expect(toAddress(response[3])).eq(owner.address);
+      expect(toAddress(response[5])).eq(user.address);
       let tx = await diamond.connect(owner).multicall([txdata1, txdata2, txdata3, txdata4, txdata5, txdata6]);
       await expect(tx).to.emit(test2FacetProxy, "Test2Event").withArgs(1);
       await expect(tx).to.emit(test2FacetProxy, "Test2Event").withArgs(2);
