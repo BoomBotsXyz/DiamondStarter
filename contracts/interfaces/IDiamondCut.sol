@@ -29,9 +29,8 @@ interface IDiamondCut {
      * @notice Add/replace/remove any number of functions and optionally execute a function with delegatecall.
      * @dev Add access control in implementation.
      * @param _diamondCut Contains the facet addresses and function selectors.
-     * @param _init The address of the contract or facet to execute _calldata.
+     * @param _init The address of the contract or facet to execute `_calldata`.
      * @param _calldata A function call, including function selector and arguments.
-     *                  _calldata is executed with delegatecall on _init.
      */
     function diamondCut(
         FacetCut[] calldata _diamondCut,

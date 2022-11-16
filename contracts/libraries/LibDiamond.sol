@@ -58,7 +58,7 @@ library LibDiamond {
     OWNERSHIP FUNCTIONS
     ***************************************/
 
-    /// @dev This emits when ownership of a contract changes.
+    /// @dev Emitted when ownership of a contract changes.
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     /**
@@ -98,9 +98,8 @@ library LibDiamond {
     /**
      * @notice Add/replace/remove any number of functions and optionally execute a function with delegatecall.
      * @param _diamondCut Contains the facet addresses and function selectors.
-     * @param _init The address of the contract or facet to execute _calldata.
+     * @param _init The address of the contract or facet to execute `_calldata`.
      * @param _calldata A function call, including function selector and arguments.
-     *                  _calldata is executed with delegatecall on _init.
      */
     function diamondCut(
         IDiamondCut.FacetCut[] memory _diamondCut,

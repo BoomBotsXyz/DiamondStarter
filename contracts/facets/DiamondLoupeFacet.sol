@@ -72,10 +72,8 @@ contract DiamondLoupeFacet is IDiamondLoupe, IERC165 {
     /**
      * @notice Query if a contract implements an interface.
      * @param interfaceID The interface identifier, as specified in ERC-165.
-     * @dev Interface identification is specified in ERC-165. This function
-     *  uses less than 30,000 gas.
-     * @return supported `true` if the contract implements `interfaceID` and
-     *  `interfaceID` is not 0xffffffff, `false` otherwise
+     * @dev Interface identification is specified in ERC-165. This function uses less than 30,000 gas.
+     * @return supported `true` if the contract implements `interfaceID` and `interfaceID` is not `0xffffffff`, `false` otherwise.
      */
     function supportsInterface(bytes4 interfaceID) external view override returns (bool supported) {
         LibDiamond.DiamondStorage storage ds = LibDiamond.diamondStorage();
