@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { IDiamondCut } from "./../interfaces/IDiamondCut.sol";
+import { IDiamondCutFacet } from "./../interfaces/facets/IDiamondCutFacet.sol";
 import { LibDiamond } from "./../libraries/LibDiamond.sol";
-import { IERC165Updater } from "./../interfaces/IERC165Updater.sol";
 
 
 /**
@@ -15,7 +14,7 @@ import { IERC165Updater } from "./../interfaces/IERC165Updater.sol";
  *
  * The owner of the diamond may use [`diamondCut()`](#diamondcut) to add, replace, or remove functions. The owner can add or remove interface support via [`updateSupportedInterfaces()`](#updatesupportedinterfaces).
  */
-contract DiamondCutFacet is IDiamondCut, IERC165Updater {
+contract DiamondCutFacet is IDiamondCutFacet {
 
     /**
      * @notice Add/replace/remove any number of functions and optionally execute a function with delegatecall.
@@ -28,7 +27,7 @@ contract DiamondCutFacet is IDiamondCut, IERC165Updater {
         FacetCut[] calldata _diamondCut,
         address _init,
         bytes calldata _calldata
-    ) external override {
+    ) external payable override {
         LibDiamond.enforceIsContractOwner();
         LibDiamond.diamondCut(_diamondCut, _init, _calldata);
     }
@@ -39,15 +38,16 @@ contract DiamondCutFacet is IDiamondCut, IERC165Updater {
      * @param interfaceIDs The list of interfaces to update.
      * @param support The list of true to signal support, false otherwise.
      */
-    function updateSupportedInterfaces(bytes4[] calldata interfaceIDs, bool[] calldata support) external override {
+    function updateSupportedInterfaces(bytes4[] calldata interfaceIDs, bool[] calldata support) external payable override {
         LibDiamond.enforceIsContractOwner();
         require(interfaceIDs.length == support.length, "DiamondCutFacet: len mismatch");
         LibDiamond.DiamondStorage storage ds = LibDiamond.diamondStorage();
-        for(uint256 i = 0; i < interfaceIDs.length; i++) {
+        for(uint256 i = 0; i < interfaceIDs.length; ) {
             bytes4 interfaceID = interfaceIDs[i];
             bool supported = support[i];
             ds.supportedInterfaces[interfaceID] = supported;
             emit InterfaceSupportUpdated(interfaceID, supported);
+            unchecked { i++; }
         }
     }
 }

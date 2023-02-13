@@ -25,13 +25,14 @@ export async function import_artifacts() {
   artifacts.DiamondLoupeFacet = await tryImport(`${artifact_dir}/facets/DiamondLoupeFacet.sol/DiamondLoupeFacet.json`);
   artifacts.OwnershipFacet = await tryImport(`${artifact_dir}/facets/OwnershipFacet.sol/OwnershipFacet.json`);
 
-  // upgrade initializers
-  artifacts.DiamondInit = await tryImport(`${artifact_dir}/upgradeInitializers/DiamondInit.sol/DiamondInit.json`);
-
-  // mocks
+  // mock facets
   artifacts.Test1Facet = await tryImport(`${artifact_dir}/mocks/facets/Test1Facet.sol/Test1Facet.json`);
   artifacts.Test2Facet = await tryImport(`${artifact_dir}/mocks/facets/Test2Facet.sol/Test2Facet.json`);
   artifacts.RevertFacet = await tryImport(`${artifact_dir}/mocks/facets/RevertFacet.sol/RevertFacet.json`);
+  artifacts.FallbackFacet = await tryImport(`${artifact_dir}/mocks/facets/FallbackFacet.sol/FallbackFacet.json`);
+
+  // upgrade initializers
+  artifacts.DiamondInit = await tryImport(`${artifact_dir}/upgradeInitializers/DiamondInit.sol/DiamondInit.json`);
 
   return artifacts;
 }

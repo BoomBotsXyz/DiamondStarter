@@ -13,17 +13,17 @@ contract Test1Facet {
     event Test1Event(uint256 funcNum);
 
     /// @notice A test function.
-    function testFunc1() external {
+    function testFunc1() external payable {
         emit Test1Event(1);
     }
 
     /// @notice A test function.
-    function testFunc2() external {
+    function testFunc2() external payable {
         emit Test1Event(2);
     }
 
     /// @notice A test function.
-    function testFunc3() external {
+    function testFunc3() external payable {
         emit Test1Event(3);
     }
 }

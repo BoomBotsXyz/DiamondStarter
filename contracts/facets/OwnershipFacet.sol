@@ -29,7 +29,7 @@ contract OwnershipFacet is IERC173 {
      * @dev Set `_newOwner` to `address(0)` to renounce any ownership.
      * @param _newOwner The address of the new owner of the contract.
      */
-    function transferOwnership(address _newOwner) external override {
+    function transferOwnership(address _newOwner) external payable override {
         LibDiamond.enforceIsContractOwner();
         LibDiamond.setContractOwner(_newOwner);
     }

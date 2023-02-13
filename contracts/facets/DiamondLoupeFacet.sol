@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
+import { IDiamondLoupeFacet } from "./../interfaces/facets/IDiamondLoupeFacet.sol";
 import { LibDiamond } from  "./../libraries/LibDiamond.sol";
-import { IDiamondLoupe } from "./../interfaces/IDiamondLoupe.sol";
-import { IERC165 } from "./../interfaces/IERC165.sol";
 
 
 /**
@@ -15,7 +14,7 @@ import { IERC165 } from "./../interfaces/IERC165.sol";
  *
  * Users can view the functions and facets of a diamond via [`facets()`](#facets), [`facetFunctionSelectors()`](#facetfunctionselectors), [`facetAddresses()`](#facetaddresses), and [`facetAddress()`](#facetaddress).
  */
-contract DiamondLoupeFacet is IDiamondLoupe, IERC165 {
+contract DiamondLoupeFacet is IDiamondLoupeFacet {
 
     // These functions are expected to be called frequently by tools.
     //
@@ -32,10 +31,11 @@ contract DiamondLoupeFacet is IDiamondLoupe, IERC165 {
         LibDiamond.DiamondStorage storage ds = LibDiamond.diamondStorage();
         uint256 numFacets = ds.facetAddresses.length;
         facets_ = new Facet[](numFacets);
-        for (uint256 i = 0; i < numFacets; i++) {
+        for (uint256 i = 0; i < numFacets; ) {
             address facetAddress_ = ds.facetAddresses[i];
             facets_[i].facetAddress = facetAddress_;
             facets_[i].functionSelectors = ds.facetFunctionSelectors[facetAddress_].functionSelectors;
+            unchecked { i++; }
         }
     }
 

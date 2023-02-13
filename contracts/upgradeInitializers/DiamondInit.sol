@@ -23,7 +23,7 @@ contract DiamondInit {
      * @notice Signals support for some interfaces.
      * Used in ERC165.
      */
-    function init() external {
+    function init() external payable {
         // adding ERC165 data
         LibDiamond.DiamondStorage storage ds = LibDiamond.diamondStorage();
         ds.supportedInterfaces[type(IERC165).interfaceId] = true;

@@ -16,8 +16,38 @@ import { IDiamondCut } from "./interfaces/IDiamondCut.sol";
  * On top of the vanilla implementation, this version supports [`multicall()`](#multicall), allowing users to batch multiple calls in one transaction.
  *
  * Security warning: `delegatecall` in a loop. Facets should not use `msg.value`.
+ *
+ * EVM note: if you pass any gas token to the diamond, the diamond cannot delegatecall a nonpayable function. All non-view functions in facets should be marked as payable. Even if the function does not require or expect the gas token, it may be multicalled with a function that does.
  */
 contract Diamond is IDiamond {
+
+    /// @notice Emitted when the diamond is cut.
+    event DiamondCut(IDiamondCut.FacetCut[] _diamondCut, address _init, bytes _calldata);
+
+    struct FacetAddressAndPosition {
+        address facetAddress;
+        uint96 functionSelectorPosition; // position in facetFunctionSelectors.functionSelectors array
+    }
+
+    struct FacetFunctionSelectors {
+        bytes4[] functionSelectors;
+        uint256 facetAddressPosition; // position of facetAddress in facetAddresses array
+    }
+
+    struct DiamondStorage {
+        // maps function selector to the facet address and
+        // the position of the selector in the facetFunctionSelectors.selectors array
+        mapping(bytes4 => FacetAddressAndPosition) selectorToFacetAndPosition;
+        // maps facet addresses to function selectors
+        mapping(address => FacetFunctionSelectors) facetFunctionSelectors;
+        // facet addresses
+        address[] facetAddresses;
+        // Used to query if a contract implements an interface.
+        // Used to implement ERC-165.
+        mapping(bytes4 => bool) supportedInterfaces;
+        // owner of the contract
+        address contractOwner;
+    }
 
     /**
      * @notice Constructs the Diamond contract.
@@ -25,17 +55,41 @@ contract Diamond is IDiamond {
      * @param diamondCutFacet The address of a [DiamondCutFacet](./facets/DiamondCutFacet).
      */
     constructor(address contractOwner, address diamondCutFacet) payable {
-        LibDiamond.setContractOwner(contractOwner);
-        // add the diamondCut external function from the diamondCutFacet
+        // due to a known solidity compiler optimizer bug, using libraries in the constructor results in large amounts of unreachable code
+        // to save gas on deployment, inline the library functions
+        // also able to cut down on code as we're adding the zero index facet and selector
+        // checks
+        require(contractOwner != address(0x0), "Diamond: zero address owner");
+        uint256 contractSize;
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            contractSize := extcodesize(diamondCutFacet)
+        }
+        require(contractSize > 0, "Diamond: no code add");
+        // get storage
+        bytes32 DIAMOND_STORAGE_POSITION = keccak256("libdiamond.diamond.storage");
+        DiamondStorage storage ds;
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            ds.slot := DIAMOND_STORAGE_POSITION
+        }
+        // set owner
+        ds.contractOwner = contractOwner;
+        // add diamond cut facet
+        ds.facetAddresses.push(diamondCutFacet);
+        bytes4 selector = IDiamondCut.diamondCut.selector;
+        ds.facetFunctionSelectors[diamondCutFacet].functionSelectors.push(selector);
+        ds.selectorToFacetAndPosition[selector].facetAddress = diamondCutFacet;
+        // emit event
         IDiamondCut.FacetCut[] memory cut = new IDiamondCut.FacetCut[](1);
         bytes4[] memory functionSelectors = new bytes4[](1);
-        functionSelectors[0] = IDiamondCut.diamondCut.selector;
+        functionSelectors[0] = selector;
         cut[0] = IDiamondCut.FacetCut({
             facetAddress: diamondCutFacet,
             action: IDiamondCut.FacetCutAction.Add,
             functionSelectors: functionSelectors
         });
-        LibDiamond.diamondCut(cut, address(0), "");
+        emit DiamondCut(cut, address(0), "");
     }
 
     /***************************************
@@ -50,7 +104,7 @@ contract Diamond is IDiamond {
     function multicall(bytes[] memory data) external payable override returns (bytes[] memory results) {
         LibDiamond.DiamondStorage storage ds = LibDiamond.diamondStorage();
         results = new bytes[](data.length);
-        for (uint256 i = 0; i < data.length; i++) {
+        for (uint256 i = 0; i < data.length; ) {
             bytes memory nextcall = data[i];
             // get function selector
             bytes4 msgsig;
@@ -63,6 +117,7 @@ contract Diamond is IDiamond {
             require(facet != address(0), "Diamond: function dne");
             // execute external function from facet using delegatecall and return any value
             results[i] = functionDelegateCall(facet, nextcall);
+            unchecked { i++; }
         }
         return results;
     }

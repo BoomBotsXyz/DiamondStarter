@@ -12,6 +12,8 @@ pragma solidity 0.8.17;
  * On top of the vanilla implementation, this version supports [`multicall()`](#multicall), allowing users to batch multiple calls in one transaction.
  *
  * Security warning: `delegatecall` in a loop. Facets should not use `msg.value`.
+ *
+ * EVM note: if you pass any gas token to the diamond, the diamond cannot delegatecall a nonpayable function. All non-view functions in facets should be marked as payable. Even if the function does not require or expect the gas token, it may be multicalled with a function that does.
  */
 interface IDiamond {
 

@@ -36,5 +36,5 @@ interface IDiamondCut {
         FacetCut[] calldata _diamondCut,
         address _init,
         bytes calldata _calldata
-    ) external;
+    ) external payable;
 }

@@ -20,5 +20,5 @@ interface IERC165Updater {
      * @param interfaceIDs The list of interfaces to update.
      * @param support The list of true to signal support, false otherwise.
      */
-    function updateSupportedInterfaces(bytes4[] calldata interfaceIDs, bool[] calldata support) external;
+    function updateSupportedInterfaces(bytes4[] calldata interfaceIDs, bool[] calldata support) external payable;
 }
