@@ -37,6 +37,7 @@ describe("Diamond", function () {
   let revertFacetLogic: RevertFacet;
   let diamondInit: DiamondInit;
 
+  const multicallSighash                 = "0xac9650d8";
   const diamondCutSighash                = "0x1f931c1c";
   const updateSupportedInterfacesSighash = "0xf71a8a0f";
   const dummy1Sighash                    = "0x11111111";
@@ -118,6 +119,11 @@ describe("Diamond", function () {
         action: FacetCutAction.Add,
         functionSelectors: [diamondCutSighash]
       }], AddressZero, "0x")).to.be.revertedWith("LibDiamond: add duplicate func");
+      await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
+        facetAddress: diamondCutFacetLogic.address,
+        action: FacetCutAction.Add,
+        functionSelectors: [multicallSighash]
+      }], AddressZero, "0x")).to.be.revertedWith("LibDiamond: add duplicate func");
     });
     it("cannot init to non contract", async function () {
       await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
@@ -158,33 +164,44 @@ describe("Diamond", function () {
   });
 
   describe("diamondLoupe", function () {
-    it("should have two facets", async function () {
+    it("should have three facets", async function () {
       let facets = await diamondLoupeFacetProxy.facetAddresses();
-      expect(facets.length).eq(2);
-      expect(facets[0]).eq(diamondCutFacetLogic.address);
-      expect(facets[1]).eq(diamondLoupeFacetLogic.address);
+      expect(facets.length).eq(3);
+      expect(facets[0]).eq(diamond.address);
+      expect(facets[1]).eq(diamondCutFacetLogic.address);
+      expect(facets[2]).eq(diamondLoupeFacetLogic.address);
       facets = await diamondLoupeFacetLogic.facetAddresses();
       expect(facets.length).eq(0);
     });
     it("facets should have the right function selectors -- call to facetFunctionSelectors function", async function () {
       let facets = await diamondLoupeFacetProxy.facetAddresses();
-      let selectors = getSelectors(diamondCutFacetLogic)
-      let result = await diamondLoupeFacetProxy.facetFunctionSelectors(facets[0])
-      assert.sameMembers(result, selectors)
-      selectors = getSelectors(diamondLoupeFacetLogic)
-      result = await diamondLoupeFacetProxy.facetFunctionSelectors(facets[1])
-      assert.sameMembers(result, selectors)
+      let selectors01 = [multicallSighash];
+      let selectors02 = getSelectors(diamond);
+      let selectors03 = await diamondLoupeFacetProxy.facetFunctionSelectors(facets[0]);
+      assert.sameMembers(selectors01, selectors02);
+      assert.sameMembers(selectors01, selectors03);
+
+      let selectors11 = [diamondCutSighash, updateSupportedInterfacesSighash];
+      let selectors12 = getSelectors(diamondCutFacetLogic);
+      let selectors13 = await diamondLoupeFacetProxy.facetFunctionSelectors(facets[1]);
+      assert.sameMembers(selectors11, selectors12);
+      assert.sameMembers(selectors11, selectors13);
+
+      let selectors22 = getSelectors(diamondLoupeFacetLogic);
+      let selectors23 = await diamondLoupeFacetProxy.facetFunctionSelectors(facets[2]);
+      assert.sameMembers(selectors22, selectors23);
     })
     it("selectors should be associated to facets correctly -- multiple calls to facetAddress function", async function () {
       let facets = await diamondLoupeFacetProxy.facetAddresses();
-      assert.equal(facets[0], await diamondLoupeFacetProxy.facetAddress("0x1f931c1c"))
-      assert.equal(facets[1], await diamondLoupeFacetProxy.facetAddress("0xcdffacc6"))
-      assert.equal(facets[1], await diamondLoupeFacetProxy.facetAddress("0x01ffc9a7"))
+      assert.equal(facets[0], await diamondLoupeFacetProxy.facetAddress(multicallSighash))
+      assert.equal(facets[1], await diamondLoupeFacetProxy.facetAddress(diamondCutSighash))
+      assert.equal(facets[2], await diamondLoupeFacetProxy.facetAddress("0xcdffacc6"))
+      assert.equal(facets[2], await diamondLoupeFacetProxy.facetAddress("0x01ffc9a7"))
     })
     it("supportsInterface", async function () {
       expect(await diamondLoupeFacetProxy.supportsInterface("0x01ffc9a7")).eq(true); // ERC165
       expect(await diamondLoupeFacetProxy.supportsInterface("0x7f5828d0")).eq(true); // ERC173
-      expect(await diamondLoupeFacetProxy.supportsInterface("0x1f931c1c")).eq(true); // DiamondCut
+      expect(await diamondLoupeFacetProxy.supportsInterface(diamondCutSighash)).eq(true); // DiamondCut
       expect(await diamondLoupeFacetProxy.supportsInterface("0x48e2b093")).eq(true); // DiamondLoupe
       expect(await diamondLoupeFacetProxy.supportsInterface("0x00000000")).eq(false);
       expect(await diamondLoupeFacetProxy.supportsInterface("0x12345678")).eq(false);
@@ -192,9 +209,10 @@ describe("Diamond", function () {
     });
     it("has the correct facets", async function () {
       let facets = await diamondLoupeFacetProxy.facets();
-      expect(facets.length).eq(2);
-      expect(facets[0].facetAddress).eq(diamondCutFacetLogic.address);
-      expect(facets[1].facetAddress).eq(diamondLoupeFacetLogic.address);
+      expect(facets.length).eq(3);
+      expect(facets[0].facetAddress).eq(diamond.address);
+      expect(facets[1].facetAddress).eq(diamondCutFacetLogic.address);
+      expect(facets[2].facetAddress).eq(diamondLoupeFacetLogic.address);
     });
   });
 
@@ -347,6 +365,12 @@ describe("Diamond", function () {
         facetAddress: AddressZero,
         action: FacetCutAction.Remove,
         functionSelectors: [dummy1Sighash]
+      }], AddressZero, "0x")).to.be.revertedWith("LibDiamond: remove immut func");
+      // try remove multicall
+      await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
+        facetAddress: AddressZero,
+        action: FacetCutAction.Remove,
+        functionSelectors: [multicallSighash]
       }], AddressZero, "0x")).to.be.revertedWith("LibDiamond: remove immut func");
     });
     it("can remove facets", async function () {
@@ -505,6 +529,12 @@ describe("Diamond", function () {
         facetAddress: test2FacetLogic.address,
         action: FacetCutAction.Replace,
         functionSelectors: [dummy1Sighash]
+      }], AddressZero, "0x")).to.be.revertedWith("LibDiamond: remove immut func");
+      // try replace multicall
+      await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
+        facetAddress: test2FacetLogic.address,
+        action: FacetCutAction.Replace,
+        functionSelectors: [multicallSighash]
       }], AddressZero, "0x")).to.be.revertedWith("LibDiamond: remove immut func");
     });
   });

@@ -56,7 +56,7 @@ contract Diamond is IDiamond {
      */
     constructor(address contractOwner, address diamondCutFacet) payable {
         // due to a known solidity compiler optimizer bug, using libraries in the constructor results in large amounts of unreachable code
-        // to save gas on deployment, inline the library functions
+        // to save gas on deployment, inline the library functions. much harder to read but worth the savings
         // also able to cut down on code as we're adding the zero index facet and selector
         // checks
         require(contractOwner != address(0x0), "Diamond: zero address owner");
@@ -75,19 +75,32 @@ contract Diamond is IDiamond {
         }
         // set owner
         ds.contractOwner = contractOwner;
+        // add multicall as immutible facet
+        ds.facetAddresses.push(address(this));
+        bytes4 multicallSelector = IDiamond.multicall.selector;
+        bytes4[] memory multicallSelectors = new bytes4[](1);
+        multicallSelectors[0] = multicallSelector;
+        ds.facetFunctionSelectors[address(this)].functionSelectors.push(multicallSelector);
+        ds.selectorToFacetAndPosition[multicallSelector].facetAddress = address(this);
         // add diamond cut facet
+        ds.facetFunctionSelectors[diamondCutFacet].facetAddressPosition = 1;
         ds.facetAddresses.push(diamondCutFacet);
-        bytes4 selector = IDiamondCut.diamondCut.selector;
-        ds.facetFunctionSelectors[diamondCutFacet].functionSelectors.push(selector);
-        ds.selectorToFacetAndPosition[selector].facetAddress = diamondCutFacet;
+        bytes4 diamondCutSelector = IDiamondCut.diamondCut.selector;
+        bytes4[] memory diamondCutSelectors = new bytes4[](1);
+        diamondCutSelectors[0] = diamondCutSelector;
+        ds.facetFunctionSelectors[diamondCutFacet].functionSelectors.push(diamondCutSelector);
+        ds.selectorToFacetAndPosition[diamondCutSelector].facetAddress = diamondCutFacet;
         // emit event
-        IDiamondCut.FacetCut[] memory cut = new IDiamondCut.FacetCut[](1);
-        bytes4[] memory functionSelectors = new bytes4[](1);
-        functionSelectors[0] = selector;
+        IDiamondCut.FacetCut[] memory cut = new IDiamondCut.FacetCut[](2);
         cut[0] = IDiamondCut.FacetCut({
+            facetAddress: address(this),
+            action: IDiamondCut.FacetCutAction.Add,
+            functionSelectors: multicallSelectors
+        });
+        cut[1] = IDiamondCut.FacetCut({
             facetAddress: diamondCutFacet,
             action: IDiamondCut.FacetCutAction.Add,
-            functionSelectors: functionSelectors
+            functionSelectors: diamondCutSelectors
         });
         emit DiamondCut(cut, address(0), "");
     }
