@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+pragma solidity 0.8.19;
 
 import { IDiamond } from "./interfaces/IDiamond.sol";
 import { LibDiamond } from "./libraries/LibDiamond.sol";
@@ -55,9 +55,8 @@ contract Diamond is IDiamond {
      * @param diamondCutFacet The address of a [DiamondCutFacet](./facets/DiamondCutFacet).
      */
     constructor(address contractOwner, address diamondCutFacet) payable {
-        // due to a known solidity compiler optimizer bug, using libraries in the constructor results in large amounts of unreachable code
-        // to save gas on deployment, inline the library functions. much harder to read but worth the savings
-        // also able to cut down on code as we're adding the zero index facet and selector
+        // this code could be made a lot more readable by using libraries
+        // inlining the library functions and optimizing for zero index cases saves gas
         // checks
         require(contractOwner != address(0x0), "Diamond: zero address owner");
         uint256 contractSize;

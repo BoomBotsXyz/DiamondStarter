@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+pragma solidity 0.8.19;
 
 import { IDiamondCut } from "./../IDiamondCut.sol";
 import { IERC165Updater } from "./../IERC165Updater.sol";

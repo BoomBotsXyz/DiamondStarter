@@ -27,7 +27,7 @@
     "hardhat-contract-sizer": "^2.4.0",
     "hardhat-gas-reporter": "^1.0.7",
     "hardhat-typechain": "^0.3.5",
-    "solc-0.8": "npm:solc@0.8.17",
+    "solc-0.8": "npm:solc@0.8.19",
     "solhint": "^3.3.6",
     "solidity-coverage": "^0.7.18",
     "solidity-docgen": "^0.5.16",
