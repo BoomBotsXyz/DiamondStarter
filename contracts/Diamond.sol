@@ -125,7 +125,7 @@ contract Diamond is IDiamond {
             address facet = ds.selectorToFacetAndPosition[msgsig].facetAddress;
             if(facet == address(0)) revert Errors.FunctionDoesNotExist();
             // execute external function from facet using delegatecall and return any value
-            results[i] = functionDelegateCall(facet, nextcall);
+            results[i] = Calls.functionDelegateCall(facet, nextcall);
             unchecked { i++; }
         }
         return results;
@@ -143,7 +143,7 @@ contract Diamond is IDiamond {
         address facet = ds.selectorToFacetAndPosition[msg.sig].facetAddress;
         if(facet == address(0)) revert Errors.FunctionDoesNotExist();
         // execute external function from facet using delegatecall and return any value
-        return functionDelegateCall(facet, data);
+        return Calls.functionDelegateCall(facet, data);
     }
 
     /**
@@ -151,38 +151,4 @@ contract Diamond is IDiamond {
      */
     // solhint-disable-next-line no-empty-blocks
     receive() external payable override {}
-
-    /***************************************
-    HELPER FUNCTIONS
-    ***************************************/
-
-    /**
-     * @notice Safely performs a Solidity function call using a low level `delegatecall`.
-     * @dev If `target` reverts with a revert reason, it is bubbled up by this function.
-     * @param target The address of the contract to `delegatecall`.
-     * @param data The data to pass to the target.
-     * @return result The result of the function call.
-     */
-    function functionDelegateCall(
-        address target,
-        bytes memory data
-    ) internal returns (bytes memory result) {
-        // solhint-disable-next-line avoid-low-level-calls
-        (bool success, bytes memory returndata) = target.delegatecall(data);
-        if(success) {
-            return returndata;
-        } else {
-            // look for revert reason and bubble it up if present
-            if(returndata.length > 0) {
-                // the easiest way to bubble the revert reason is using memory via assembly
-                // solhint-disable-next-line no-inline-assembly
-                assembly {
-                    let returndata_size := mload(returndata)
-                    revert(add(32, returndata), returndata_size)
-                }
-            } else {
-                revert("Diamond: failed delegatecall");
-            }
-        }
-    }
 }

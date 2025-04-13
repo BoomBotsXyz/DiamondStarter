@@ -99,7 +99,7 @@ describe("Diamond", function () {
         facetAddress: diamondLoupeFacetLogic.address,
         action: 3,
         functionSelectors: [dummy1Sighash]
-      }], AddressZero, "0x")).to.be.revertedWith("Diamond: failed delegatecall");
+      }], AddressZero, "0x")).to.be.revertedWithCustomError(diamondCutFacetProxy, "DelegateCallFailed");
     });
     it("cannot add zero functions", async function () {
       await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
@@ -144,7 +144,7 @@ describe("Diamond", function () {
         facetAddress: diamondCutFacetLogic.address,
         action: FacetCutAction.Add,
         functionSelectors: [dummy1Sighash]
-      }], revertFacetLogic.address, revertFacetLogic.interface.encodeFunctionData("revertWithoutReason()"))).to.be.revertedWith("LibDiamond: init func failed");
+      }], revertFacetLogic.address, revertFacetLogic.interface.encodeFunctionData("revertWithoutReason()"))).to.be.revertedWithCustomError(diamondCutFacetProxy, "DelegateCallFailed");;
     });
     it("can add functions from a known facet", async function () {
       let tx = await diamondCutFacetProxy.connect(owner).diamondCut([{
@@ -285,7 +285,7 @@ describe("Diamond", function () {
         facetAddress: AddressZero,
         action: 3,
         functionSelectors: [dummy1Sighash]
-      }], AddressZero, "0x")).to.be.revertedWith("Diamond: failed delegatecall");
+      }], AddressZero, "0x")).to.be.revertedWithCustomError(diamondCutFacetProxy, "DelegateCallFailed");
     });
     it("cannot remove zero functions", async function () {
       await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
@@ -325,7 +325,7 @@ describe("Diamond", function () {
         facetAddress: AddressZero,
         action: FacetCutAction.Remove,
         functionSelectors: [testFunc1Sighash]
-      }], revertFacetLogic.address, revertFacetLogic.interface.encodeFunctionData("revertWithoutReason()"))).to.be.revertedWith("LibDiamond: init func failed");
+      }], revertFacetLogic.address, revertFacetLogic.interface.encodeFunctionData("revertWithoutReason()"))).to.be.revertedWithCustomError(diamondCutFacetProxy, "DelegateCallFailed");;
     });
     it("can remove functions", async function () {
       let tx = await diamondCutFacetProxy.connect(owner).diamondCut([{
@@ -439,7 +439,7 @@ describe("Diamond", function () {
         facetAddress: test2FacetLogic.address,
         action: 3,
         functionSelectors: [testFunc1Sighash]
-      }], AddressZero, "0x")).to.be.revertedWith("Diamond: failed delegatecall");
+      }], AddressZero, "0x")).to.be.revertedWithCustomError(diamondCutFacetProxy, "DelegateCallFailed");
     });
     it("cannot replace zero functions", async function () {
       await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
@@ -486,7 +486,7 @@ describe("Diamond", function () {
         facetAddress: test2FacetLogic.address,
         action: FacetCutAction.Replace,
         functionSelectors: [testFunc1Sighash]
-      }], revertFacetLogic.address, revertFacetLogic.interface.encodeFunctionData("revertWithoutReason()"))).to.be.revertedWith("LibDiamond: init func failed");
+      }], revertFacetLogic.address, revertFacetLogic.interface.encodeFunctionData("revertWithoutReason()"))).to.be.revertedWithCustomError(diamondCutFacetProxy, "DelegateCallFailed");;
     });
     it("can replace functions", async function () {
       let tx = await diamondCutFacetProxy.connect(owner).diamondCut([{
@@ -555,7 +555,7 @@ describe("Diamond", function () {
       let txdata1 = revertFacetProxy.interface.encodeFunctionData("revertWithReason()");
       await expect(diamond.multicall([txdata1])).to.be.revertedWith("RevertFacet call failed");
       let txdata2 = revertFacetProxy.interface.encodeFunctionData("revertWithoutReason()");
-      await expect(diamond.multicall([txdata2])).to.be.revertedWith("Diamond: failed delegatecall");
+      await expect(diamond.multicall([txdata2])).to.be.revertedWithCustomError(diamondCutFacetProxy, "DelegateCallFailed");
     });
     it("cannot delegatecall a nonpayable function with value", async function () {
       let txdata = ownershipFacetProxy.interface.encodeFunctionData("owner()");

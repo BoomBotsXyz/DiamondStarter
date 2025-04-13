@@ -268,36 +268,6 @@ library LibDiamond {
             return;
         }
         Calls.verifyHasCode(_init);
-        functionDelegateCall(_init, _calldata);
-    }
-
-    /**
-     * @notice Safely performs a Solidity function call using a low level `delegatecall`.
-     * @dev If `target` reverts with a revert reason, it is bubbled up by this function.
-     * @param target The address of the contract to `delegatecall`.
-     * @param data The data to pass to the target.
-     * @return result The result of the function call.
-     */
-    function functionDelegateCall(
-        address target,
-        bytes memory data
-    ) internal returns (bytes memory result) {
-        // solhint-disable-next-line avoid-low-level-calls
-        (bool success, bytes memory returndata) = target.delegatecall(data);
-        if(success) {
-            return returndata;
-        } else {
-            // look for revert reason and bubble it up if present
-            if(returndata.length > 0) {
-                // the easiest way to bubble the revert reason is using memory via assembly
-                // solhint-disable-next-line no-inline-assembly
-                assembly {
-                    let returndata_size := mload(returndata)
-                    revert(add(32, returndata), returndata_size)
-                }
-            } else {
-                revert("LibDiamond: init func failed");
-            }
-        }
+        Calls.functionDelegateCall(_init, _calldata);
     }
 }
