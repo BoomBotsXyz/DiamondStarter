@@ -4,6 +4,8 @@ pragma solidity 0.8.24;
 import { IDiamond } from "./interfaces/IDiamond.sol";
 import { LibDiamond } from "./libraries/LibDiamond.sol";
 import { IDiamondCut } from "./interfaces/IDiamondCut.sol";
+import { Calls } from "./libraries/Calls.sol";
+import { Errors } from "./libraries/Errors.sol";
 
 
 /**
@@ -58,13 +60,8 @@ contract Diamond is IDiamond {
         // this code could be made a lot more readable by using libraries
         // inlining the library functions and optimizing for zero index cases saves gas
         // checks
-        require(contractOwner != address(0x0), "Diamond: zero address owner");
-        uint256 contractSize;
-        // solhint-disable-next-line no-inline-assembly
-        assembly {
-            contractSize := extcodesize(diamondCutFacet)
-        }
-        require(contractSize > 0, "Diamond: no code add");
+        if(contractOwner == address(0)) revert Errors.AddressZero();
+        Calls.verifyHasCode(diamondCutFacet);
         // get storage
         bytes32 DIAMOND_STORAGE_POSITION = keccak256("libdiamond.diamond.storage");
         DiamondStorage storage ds;
@@ -126,7 +123,7 @@ contract Diamond is IDiamond {
             }
             // get facet from function selector
             address facet = ds.selectorToFacetAndPosition[msgsig].facetAddress;
-            require(facet != address(0), "Diamond: function dne");
+            if(facet == address(0)) revert Errors.FunctionDoesNotExist();
             // execute external function from facet using delegatecall and return any value
             results[i] = functionDelegateCall(facet, nextcall);
             unchecked { i++; }
@@ -144,7 +141,7 @@ contract Diamond is IDiamond {
         LibDiamond.DiamondStorage storage ds = LibDiamond.diamondStorage();
         // get facet from function selector
         address facet = ds.selectorToFacetAndPosition[msg.sig].facetAddress;
-        require(facet != address(0), "Diamond: function dne");
+        if(facet == address(0)) revert Errors.FunctionDoesNotExist();
         // execute external function from facet using delegatecall and return any value
         return functionDelegateCall(facet, data);
     }
