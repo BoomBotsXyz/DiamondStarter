@@ -1,25 +1,26 @@
 /* global describe it before ethers */
 
 import chai from "chai";
-import { ethers, waffle } from "hardhat";
-const { expect, assert } = chai;
-const { deployContract, solidity } = waffle;
-const provider = waffle.provider;
-import { BigNumber as BN } from "ethers";
-chai.use(solidity);
+import hre from "hardhat";
+const { ethers } = hre;
+const { provider } = ethers;
+const { expect, assert } = chai;;
+import { BigNumber as BN, BigNumberish } from "ethers";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
-import { import_artifacts, ArtifactImports } from "./../scripts/utilities/artifact_importer";
 import { Diamond, DiamondInit, DiamondCutFacet, DiamondLoupeFacet, OwnershipFacet, Test1Facet, Test2Facet, RevertFacet, FallbackFacet } from "./../typechain";
 import { expectDeployed } from "./../scripts/utilities/expectDeployed";
 
 import { getSelectors, FacetCutAction } from "./../scripts/libraries/diamond"
 import { getNetworkSettings } from "../scripts/utilities/getNetworkSettings";
+import { deployContract } from "../scripts/utils/deployContract";
 
 const { AddressZero } = ethers.constants;
 
 describe("Diamond", function () {
-  const [deployer, owner, user] = provider.getWallets();
-  let artifacts: ArtifactImports;
+  let deployer: SignerWithAddress;
+  let owner: SignerWithAddress;
+  let user: SignerWithAddress;
   let snapshot: BN;
 
   let diamond: Diamond;
@@ -47,10 +48,10 @@ describe("Diamond", function () {
   const testFunc3Sighash                 = "0x9a5fb5a8";
 
   before(async function () {
+    [deployer, owner, user] = await ethers.getSigners();
     let chainID = (await provider.getNetwork()).chainId;
     let networkSettings = getNetworkSettings(chainID);
-    if(!networkSettings.isTestnet) throw("Do not run tests on production networks");
-    artifacts = await import_artifacts();
+    if(!networkSettings.isTestnet) throw new Error("Do not run tests on production networks");
     snapshot = await provider.send("evm_snapshot", []);
     await deployer.sendTransaction({to:deployer.address}); // for some reason this helps solidity-coverage
   });
@@ -61,28 +62,28 @@ describe("Diamond", function () {
 
   describe("deployment", function () {
     it("cannot deploy with zero address owner", async function () {
-      await expect(deployContract(deployer, artifacts.Diamond, [AddressZero, user.address])).to.be.revertedWith("Diamond: zero address owner");
+      await expect(deployContract(deployer, "Diamond", [AddressZero, user.address])).to.be.revertedWith("Diamond: zero address owner");
     });
     it("cannot deploy with no code diamondCutFacet", async function () {
-      await expect(deployContract(deployer, artifacts.Diamond, [owner.address, AddressZero])).to.be.revertedWith("Diamond: no code add");
-      await expect(deployContract(deployer, artifacts.Diamond, [owner.address, user.address])).to.be.revertedWith("Diamond: no code add");
+      await expect(deployContract(deployer, "Diamond", [owner.address, AddressZero])).to.be.revertedWith("Diamond: no code add");
+      await expect(deployContract(deployer, "Diamond", [owner.address, user.address])).to.be.revertedWith("Diamond: no code add");
     });
     it("should deploy successfully", async function () {
-      diamondCutFacetLogic = await deployContract(deployer, artifacts.DiamondCutFacet) as DiamondCutFacet;
+      diamondCutFacetLogic = await deployContract(deployer, "DiamondCutFacet") as DiamondCutFacet;
       await expectDeployed(diamondCutFacetLogic.address);
-      diamond = await deployContract(deployer, artifacts.Diamond, [owner.address, diamondCutFacetLogic.address]) as Diamond;
+      diamond = await deployContract(deployer, "Diamond", [owner.address, diamondCutFacetLogic.address]) as Diamond;
       await expectDeployed(diamond.address);
-      diamondCutFacetProxy = await ethers.getContractAt(artifacts.DiamondCutFacet.abi, diamond.address) as DiamondCutFacet;
+      diamondCutFacetProxy = await ethers.getContractAt("DiamondCutFacet", diamond.address) as DiamondCutFacet;
     });
   });
 
   describe("diamondCut add", function () {
     before(async function () {
-      diamondLoupeFacetLogic = await deployContract(deployer, artifacts.DiamondLoupeFacet) as DiamondLoupeFacet;
+      diamondLoupeFacetLogic = await deployContract(deployer, "DiamondLoupeFacet") as DiamondLoupeFacet;
       await expectDeployed(diamondLoupeFacetLogic.address);
-      diamondInit = await deployContract(deployer, artifacts.DiamondInit) as DiamondInit;
+      diamondInit = await deployContract(deployer, "DiamondInit") as DiamondInit;
       await expectDeployed(diamondInit.address);
-      revertFacetLogic = await deployContract(deployer, artifacts.RevertFacet) as RevertFacet;
+      revertFacetLogic = await deployContract(deployer, "RevertFacet") as RevertFacet;
       await expectDeployed(revertFacetLogic.address);
     });
     it("cannot be called by non owner", async function () {
@@ -159,7 +160,7 @@ describe("Diamond", function () {
         functionSelectors: getSelectors(diamondLoupeFacetLogic)
       }], diamondInit.address, diamondInit.interface.encodeFunctionData("init()"), {value: 1}); // and delegatecall
       await expect(tx).to.emit(diamondCutFacetProxy, "DiamondCut");
-      diamondLoupeFacetProxy = await ethers.getContractAt(artifacts.DiamondLoupeFacet.abi, diamond.address) as DiamondLoupeFacet;
+      diamondLoupeFacetProxy = await ethers.getContractAt("DiamondLoupeFacet", diamond.address) as DiamondLoupeFacet;
     });
   });
 
@@ -218,19 +219,19 @@ describe("Diamond", function () {
 
   describe("ownership", function () {
     it("cannot call functions before adding facet", async function () {
-      ownershipFacetProxy = await ethers.getContractAt(artifacts.OwnershipFacet.abi, diamond.address) as OwnershipFacet;
+      ownershipFacetProxy = await ethers.getContractAt("OwnershipFacet", diamond.address) as OwnershipFacet;
       await expect(ownershipFacetProxy.owner()).to.be.revertedWith("Diamond: function dne");
       await expect(ownershipFacetProxy.transferOwnership(user.address)).to.be.revertedWith("Diamond: function dne");
     });
     it("can add ownership facet", async function () {
-      ownershipFacetLogic = await deployContract(deployer, artifacts.OwnershipFacet) as OwnershipFacet;
+      ownershipFacetLogic = await deployContract(deployer, "OwnershipFacet") as OwnershipFacet;
       await expectDeployed(ownershipFacetLogic.address);
       await diamondCutFacetProxy.connect(owner).diamondCut([{
         facetAddress: ownershipFacetLogic.address,
         action: FacetCutAction.Add,
         functionSelectors: getSelectors(ownershipFacetLogic)
       }], AddressZero, "0x", {value: 1});
-      ownershipFacetProxy = await ethers.getContractAt(artifacts.OwnershipFacet.abi, diamond.address) as OwnershipFacet;
+      ownershipFacetProxy = await ethers.getContractAt("OwnershipFacet", diamond.address) as OwnershipFacet;
     });
     it("starts with the correct owner", async function () {
       expect(await ownershipFacetProxy.owner()).eq(owner.address);
@@ -251,9 +252,9 @@ describe("Diamond", function () {
   describe("diamondCut remove", function () {
     before(async function () {
       // deploy test1Facet
-      test1FacetLogic = await deployContract(deployer, artifacts.Test1Facet) as Test1Facet;
+      test1FacetLogic = await deployContract(deployer, "Test1Facet") as Test1Facet;
       await expectDeployed(test1FacetLogic.address);
-      test1FacetProxy = await ethers.getContractAt(artifacts.Test1Facet.abi, diamond.address) as Test1Facet;
+      test1FacetProxy = await ethers.getContractAt("Test1Facet", diamond.address) as Test1Facet;
       // add test1Facet
       await diamondCutFacetProxy.connect(owner).diamondCut([{
         facetAddress: test1FacetLogic.address,
@@ -267,9 +268,9 @@ describe("Diamond", function () {
       await expect(await test1FacetProxy.testFunc2()).to.emit(test1FacetProxy, "Test1Event").withArgs(2);
       await expect(await test1FacetProxy.testFunc3()).to.emit(test1FacetProxy, "Test1Event").withArgs(3);
       // deploy test2Facet
-      test2FacetLogic = await deployContract(deployer, artifacts.Test2Facet) as Test2Facet;
+      test2FacetLogic = await deployContract(deployer, "Test2Facet") as Test2Facet;
       await expectDeployed(test2FacetLogic.address);
-      test2FacetProxy = await ethers.getContractAt(artifacts.Test2Facet.abi, diamond.address) as Test2Facet;
+      test2FacetProxy = await ethers.getContractAt("Test2Facet", diamond.address) as Test2Facet;
     });
     it("cannot be called by non owner", async function () {
       await expect(diamondCutFacetProxy.connect(user).diamondCut([{
@@ -384,7 +385,7 @@ describe("Diamond", function () {
         action: FacetCutAction.Add,
         functionSelectors: [testFunc2Sighash]
       }], AddressZero, "0x", {value: 1});
-      test2FacetProxy = await ethers.getContractAt(artifacts.Test2Facet.abi, diamond.address) as Test2Facet;
+      test2FacetProxy = await ethers.getContractAt("Test2Facet", diamond.address) as Test2Facet;
       let result11 = await diamondLoupeFacetProxy.facetFunctionSelectors(test1FacetLogic.address)
       assert.sameMembers(result11, [testFunc1Sighash]);
       let result12 = await diamondLoupeFacetProxy.facetFunctionSelectors(test2FacetLogic.address)
@@ -544,7 +545,7 @@ describe("Diamond", function () {
       await expect(diamond.multicall([dummy2Sighash], {gasLimit:1000000})).to.be.revertedWith("Diamond: function dne")
     });
     it("cannot call functions that revert", async function () {
-      revertFacetProxy = await ethers.getContractAt(artifacts.RevertFacet.abi, diamond.address) as RevertFacet;
+      revertFacetProxy = await ethers.getContractAt("RevertFacet", diamond.address) as RevertFacet;
       await diamondCutFacetProxy.connect(owner).diamondCut([{
         facetAddress: revertFacetLogic.address,
         action: FacetCutAction.Add,
@@ -652,20 +653,20 @@ describe("Diamond", function () {
 
     before(async function () {
       // redeploy
-      diamondCutFacetLogic = await deployContract(deployer, artifacts.DiamondCutFacet) as DiamondCutFacet;
+      diamondCutFacetLogic = await deployContract(deployer, "DiamondCutFacet") as DiamondCutFacet;
       await expectDeployed(diamondCutFacetLogic.address);
-      diamond = await deployContract(deployer, artifacts.Diamond, [owner.address, diamondCutFacetLogic.address]) as Diamond;
+      diamond = await deployContract(deployer, "Diamond", [owner.address, diamondCutFacetLogic.address]) as Diamond;
       await expectDeployed(diamond.address);
-      diamondCutFacetProxy = await ethers.getContractAt(artifacts.DiamondCutFacet.abi, diamond.address) as DiamondCutFacet;
-      diamondLoupeFacetLogic = await deployContract(deployer, artifacts.DiamondLoupeFacet) as DiamondLoupeFacet;
+      diamondCutFacetProxy = await ethers.getContractAt("DiamondCutFacet", diamond.address) as DiamondCutFacet;
+      diamondLoupeFacetLogic = await deployContract(deployer, "DiamondLoupeFacet") as DiamondLoupeFacet;
       await expectDeployed(diamondLoupeFacetLogic.address);
-      diamondLoupeFacetProxy = await ethers.getContractAt(artifacts.DiamondLoupeFacet.abi, diamond.address) as DiamondLoupeFacet;
-      ownershipFacetLogic = await deployContract(deployer, artifacts.OwnershipFacet) as OwnershipFacet;
+      diamondLoupeFacetProxy = await ethers.getContractAt("DiamondLoupeFacet", diamond.address) as DiamondLoupeFacet;
+      ownershipFacetLogic = await deployContract(deployer, "OwnershipFacet") as OwnershipFacet;
       await expectDeployed(ownershipFacetLogic.address);
-      ownershipFacetProxy = await ethers.getContractAt(artifacts.OwnershipFacet.abi, diamond.address) as OwnershipFacet;
-      test1FacetLogic = await deployContract(deployer, artifacts.Test1Facet) as Test1Facet;
+      ownershipFacetProxy = await ethers.getContractAt("OwnershipFacet", diamond.address) as OwnershipFacet;
+      test1FacetLogic = await deployContract(deployer, "Test1Facet") as Test1Facet;
       await expectDeployed(test1FacetLogic.address);
-      test1FacetProxy = await ethers.getContractAt(artifacts.Test1Facet.abi, diamond.address) as Test1Facet;
+      test1FacetProxy = await ethers.getContractAt("Test1Facet", diamond.address) as Test1Facet;
       // add functions
       await diamondCutFacetProxy.connect(owner).diamondCut([
         {
@@ -714,20 +715,20 @@ describe("Diamond", function () {
   describe("gas", function () {
     before(async function () {
       // redeploy
-      diamondCutFacetLogic = await deployContract(deployer, artifacts.DiamondCutFacet) as DiamondCutFacet;
+      diamondCutFacetLogic = await deployContract(deployer, "DiamondCutFacet") as DiamondCutFacet;
       await expectDeployed(diamondCutFacetLogic.address);
-      diamond = await deployContract(deployer, artifacts.Diamond, [owner.address, diamondCutFacetLogic.address]) as Diamond;
+      diamond = await deployContract(deployer, "Diamond", [owner.address, diamondCutFacetLogic.address]) as Diamond;
       await expectDeployed(diamond.address);
-      diamondCutFacetProxy = await ethers.getContractAt(artifacts.DiamondCutFacet.abi, diamond.address) as DiamondCutFacet;
-      diamondLoupeFacetLogic = await deployContract(deployer, artifacts.DiamondLoupeFacet) as DiamondLoupeFacet;
+      diamondCutFacetProxy = await ethers.getContractAt("DiamondCutFacet", diamond.address) as DiamondCutFacet;
+      diamondLoupeFacetLogic = await deployContract(deployer, "DiamondLoupeFacet") as DiamondLoupeFacet;
       await expectDeployed(diamondLoupeFacetLogic.address);
-      diamondLoupeFacetProxy = await ethers.getContractAt(artifacts.DiamondLoupeFacet.abi, diamond.address) as DiamondLoupeFacet;
-      ownershipFacetLogic = await deployContract(deployer, artifacts.OwnershipFacet) as OwnershipFacet;
+      diamondLoupeFacetProxy = await ethers.getContractAt("DiamondLoupeFacet", diamond.address) as DiamondLoupeFacet;
+      ownershipFacetLogic = await deployContract(deployer, "OwnershipFacet") as OwnershipFacet;
       await expectDeployed(ownershipFacetLogic.address);
-      ownershipFacetProxy = await ethers.getContractAt(artifacts.OwnershipFacet.abi, diamond.address) as OwnershipFacet;
-      test1FacetLogic = await deployContract(deployer, artifacts.Test1Facet) as Test1Facet;
+      ownershipFacetProxy = await ethers.getContractAt("OwnershipFacet", diamond.address) as OwnershipFacet;
+      test1FacetLogic = await deployContract(deployer, "Test1Facet") as Test1Facet;
       await expectDeployed(test1FacetLogic.address);
-      test1FacetProxy = await ethers.getContractAt(artifacts.Test1Facet.abi, diamond.address) as Test1Facet;
+      test1FacetProxy = await ethers.getContractAt("Test1Facet", diamond.address) as Test1Facet;
       // add functions
       await diamondCutFacetProxy.connect(owner).diamondCut([
         {
@@ -748,7 +749,7 @@ describe("Diamond", function () {
       let numFacets2 = 15;
       let results = [];
       for(let i = numFacets1+1; i <= numFacets2; ++i) {
-        let nextFacetLogic = await deployContract(deployer, artifacts.FallbackFacet) as FallbackFacet;
+        let nextFacetLogic = await deployContract(deployer, "FallbackFacet") as FallbackFacet;
         let sighash = "0x"+BN.from(i).toHexString().substring(2).padStart(8,"0");
         let tx1 = await diamondCutFacetProxy.connect(owner).diamondCut([
           {
