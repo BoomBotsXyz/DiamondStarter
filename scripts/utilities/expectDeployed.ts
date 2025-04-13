@@ -1,7 +1,8 @@
 import chai from "chai";
-import { waffle, ethers } from "hardhat";
+import hre from "hardhat";
+const { ethers } = hre;
+const { provider } = ethers;
 const { expect } = chai;
-const provider = waffle.provider;
 
 // reverts if no code was deployed at the given address and block
 // or if the address is invalid
