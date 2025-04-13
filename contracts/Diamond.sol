@@ -4,6 +4,8 @@ pragma solidity 0.8.24;
 import { IDiamond } from "./interfaces/IDiamond.sol";
 import { LibDiamond } from "./libraries/LibDiamond.sol";
 import { IDiamondCut } from "./interfaces/IDiamondCut.sol";
+import { Calls } from "./libraries/Calls.sol";
+import { Errors } from "./libraries/Errors.sol";
 
 
 /**
@@ -58,13 +60,8 @@ contract Diamond is IDiamond {
         // this code could be made a lot more readable by using libraries
         // inlining the library functions and optimizing for zero index cases saves gas
         // checks
-        require(contractOwner != address(0x0), "Diamond: zero address owner");
-        uint256 contractSize;
-        // solhint-disable-next-line no-inline-assembly
-        assembly {
-            contractSize := extcodesize(diamondCutFacet)
-        }
-        require(contractSize > 0, "Diamond: no code add");
+        if(contractOwner == address(0)) revert Errors.AddressZero();
+        Calls.verifyHasCode(diamondCutFacet);
         // get storage
         bytes32 DIAMOND_STORAGE_POSITION = keccak256("libdiamond.diamond.storage");
         DiamondStorage storage ds;
@@ -126,9 +123,9 @@ contract Diamond is IDiamond {
             }
             // get facet from function selector
             address facet = ds.selectorToFacetAndPosition[msgsig].facetAddress;
-            require(facet != address(0), "Diamond: function dne");
+            if(facet == address(0)) revert Errors.FunctionDoesNotExist();
             // execute external function from facet using delegatecall and return any value
-            results[i] = functionDelegateCall(facet, nextcall);
+            results[i] = Calls.functionDelegateCall(facet, nextcall);
             unchecked { i++; }
         }
         return results;
@@ -144,9 +141,9 @@ contract Diamond is IDiamond {
         LibDiamond.DiamondStorage storage ds = LibDiamond.diamondStorage();
         // get facet from function selector
         address facet = ds.selectorToFacetAndPosition[msg.sig].facetAddress;
-        require(facet != address(0), "Diamond: function dne");
+        if(facet == address(0)) revert Errors.FunctionDoesNotExist();
         // execute external function from facet using delegatecall and return any value
-        return functionDelegateCall(facet, data);
+        return Calls.functionDelegateCall(facet, data);
     }
 
     /**
@@ -154,38 +151,4 @@ contract Diamond is IDiamond {
      */
     // solhint-disable-next-line no-empty-blocks
     receive() external payable override {}
-
-    /***************************************
-    HELPER FUNCTIONS
-    ***************************************/
-
-    /**
-     * @notice Safely performs a Solidity function call using a low level `delegatecall`.
-     * @dev If `target` reverts with a revert reason, it is bubbled up by this function.
-     * @param target The address of the contract to `delegatecall`.
-     * @param data The data to pass to the target.
-     * @return result The result of the function call.
-     */
-    function functionDelegateCall(
-        address target,
-        bytes memory data
-    ) internal returns (bytes memory result) {
-        // solhint-disable-next-line avoid-low-level-calls
-        (bool success, bytes memory returndata) = target.delegatecall(data);
-        if(success) {
-            return returndata;
-        } else {
-            // look for revert reason and bubble it up if present
-            if(returndata.length > 0) {
-                // the easiest way to bubble the revert reason is using memory via assembly
-                // solhint-disable-next-line no-inline-assembly
-                assembly {
-                    let returndata_size := mload(returndata)
-                    revert(add(32, returndata), returndata_size)
-                }
-            } else {
-                revert("Diamond: failed delegatecall");
-            }
-        }
-    }
 }

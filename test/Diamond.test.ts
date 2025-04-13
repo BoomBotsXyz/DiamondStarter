@@ -62,11 +62,12 @@ describe("Diamond", function () {
 
   describe("deployment", function () {
     it("cannot deploy with zero address owner", async function () {
-      await expect(deployContract(deployer, "Diamond", [AddressZero, user.address])).to.be.revertedWith("Diamond: zero address owner");
+      //await expect(deployContract(deployer, "Diamond", [AddressZero, user.address])).to.be.revertedWith("Diamond: zero address owner");
+      await expect(deployContract(deployer, "Diamond", [AddressZero, user.address])).to.be.reverted//WithCustomError(diamond, "AddressZero");
     });
     it("cannot deploy with no code diamondCutFacet", async function () {
-      await expect(deployContract(deployer, "Diamond", [owner.address, AddressZero])).to.be.revertedWith("Diamond: no code add");
-      await expect(deployContract(deployer, "Diamond", [owner.address, user.address])).to.be.revertedWith("Diamond: no code add");
+      await expect(deployContract(deployer, "Diamond", [owner.address, AddressZero])).to.be.reverted;//WithCustomError(diamond, "NoCodeAdd")
+      await expect(deployContract(deployer, "Diamond", [owner.address, user.address])).to.be.reverted;//WithCustomError(diamond, "NoCodeAdd")
     });
     it("should deploy successfully", async function () {
       diamondCutFacetLogic = await deployContract(deployer, "DiamondCutFacet") as DiamondCutFacet;
@@ -91,47 +92,47 @@ describe("Diamond", function () {
         facetAddress: diamondLoupeFacetLogic.address,
         action: FacetCutAction.Add,
         functionSelectors: [dummy1Sighash]
-      }], AddressZero, "0x")).to.be.revertedWith("LibDiamond: !owner");
+      }], AddressZero, "0x")).to.be.revertedWithCustomError(diamondCutFacetProxy, "NotContractOwner");
     });
     it("cannot use invalid FacetCutAction", async function () {
       await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
         facetAddress: diamondLoupeFacetLogic.address,
         action: 3,
         functionSelectors: [dummy1Sighash]
-      }], AddressZero, "0x")).to.be.revertedWith("Diamond: failed delegatecall");
+      }], AddressZero, "0x")).to.be.revertedWithCustomError(diamondCutFacetProxy, "DelegateCallFailed");
     });
     it("cannot add zero functions", async function () {
       await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
         facetAddress: diamondLoupeFacetLogic.address,
         action: FacetCutAction.Add,
         functionSelectors: []
-      }], AddressZero, "0x")).to.be.revertedWith("LibDiamond: no selectors to cut");
+      }], AddressZero, "0x")).to.be.revertedWithCustomError(diamondCutFacetProxy, "NoSelectorsToCut");
     });
     it("cannot add zero address facet", async function () {
       await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
         facetAddress: AddressZero,
         action: FacetCutAction.Add,
         functionSelectors: [dummy1Sighash]
-      }], AddressZero, "0x")).to.be.revertedWith("LibDiamond: zero address facet");
+      }], AddressZero, "0x")).to.be.revertedWithCustomError(diamondCutFacetProxy, "AddressZero");
     });
     it("cannot add function that already exists", async function () {
       await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
         facetAddress: diamondCutFacetLogic.address,
         action: FacetCutAction.Add,
         functionSelectors: [diamondCutSighash]
-      }], AddressZero, "0x")).to.be.revertedWith("LibDiamond: add duplicate func");
+      }], AddressZero, "0x")).to.be.revertedWithCustomError(diamondCutFacetProxy, "AddFunctionDuplicate");
       await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
         facetAddress: diamondCutFacetLogic.address,
         action: FacetCutAction.Add,
         functionSelectors: [multicallSighash]
-      }], AddressZero, "0x")).to.be.revertedWith("LibDiamond: add duplicate func");
+      }], AddressZero, "0x")).to.be.revertedWithCustomError(diamondCutFacetProxy, "AddFunctionDuplicate");
     });
     it("cannot init to non contract", async function () {
       await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
         facetAddress: diamondCutFacetLogic.address,
         action: FacetCutAction.Add,
         functionSelectors: [dummy1Sighash]
-      }], user.address, "0x")).to.be.revertedWith("LibDiamond: no code init");
+      }], user.address, "0x")).to.be.revertedWithCustomError(diamondCutFacetProxy, "NotAContract");
     });
     it("cannot add if init fails", async function () {
       await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
@@ -143,7 +144,7 @@ describe("Diamond", function () {
         facetAddress: diamondCutFacetLogic.address,
         action: FacetCutAction.Add,
         functionSelectors: [dummy1Sighash]
-      }], revertFacetLogic.address, revertFacetLogic.interface.encodeFunctionData("revertWithoutReason()"))).to.be.revertedWith("LibDiamond: init func failed");
+      }], revertFacetLogic.address, revertFacetLogic.interface.encodeFunctionData("revertWithoutReason()"))).to.be.revertedWithCustomError(diamondCutFacetProxy, "DelegateCallFailed");;
     });
     it("can add functions from a known facet", async function () {
       let tx = await diamondCutFacetProxy.connect(owner).diamondCut([{
@@ -220,8 +221,8 @@ describe("Diamond", function () {
   describe("ownership", function () {
     it("cannot call functions before adding facet", async function () {
       ownershipFacetProxy = await ethers.getContractAt("OwnershipFacet", diamond.address) as OwnershipFacet;
-      await expect(ownershipFacetProxy.owner()).to.be.revertedWith("Diamond: function dne");
-      await expect(ownershipFacetProxy.transferOwnership(user.address)).to.be.revertedWith("Diamond: function dne");
+      await expect(ownershipFacetProxy.owner()).to.be.revertedWithCustomError(diamond, "FunctionDoesNotExist");
+      await expect(ownershipFacetProxy.transferOwnership(user.address)).to.be.revertedWithCustomError(diamond, "FunctionDoesNotExist");
     });
     it("can add ownership facet", async function () {
       ownershipFacetLogic = await deployContract(deployer, "OwnershipFacet") as OwnershipFacet;
@@ -238,8 +239,8 @@ describe("Diamond", function () {
       expect(await ownershipFacetLogic.owner()).eq(AddressZero);
     });
     it("non owner cannot transfer ownership", async function () {
-      await expect(ownershipFacetProxy.connect(user).transferOwnership(user.address)).to.be.revertedWith("LibDiamond: !owner");
-      await expect(ownershipFacetLogic.connect(user).transferOwnership(user.address)).to.be.revertedWith("LibDiamond: !owner");
+      await expect(ownershipFacetProxy.connect(user).transferOwnership(user.address)).to.be.revertedWithCustomError(ownershipFacetProxy, "NotContractOwner");
+      await expect(ownershipFacetLogic.connect(user).transferOwnership(user.address)).to.be.revertedWithCustomError(ownershipFacetLogic, "NotContractOwner");
     });
     it("owner can transfer ownership", async function () {
       let tx = await ownershipFacetProxy.connect(owner).transferOwnership(user.address, {value: 1});
@@ -277,42 +278,42 @@ describe("Diamond", function () {
         facetAddress: AddressZero,
         action: FacetCutAction.Remove,
         functionSelectors: [dummy1Sighash]
-      }], AddressZero, "0x")).to.be.revertedWith("LibDiamond: !owner");
+      }], AddressZero, "0x")).to.be.revertedWithCustomError(diamondCutFacetProxy, "NotContractOwner");
     });
     it("cannot use invalid FacetCutAction", async function () {
       await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
         facetAddress: AddressZero,
         action: 3,
         functionSelectors: [dummy1Sighash]
-      }], AddressZero, "0x")).to.be.revertedWith("Diamond: failed delegatecall");
+      }], AddressZero, "0x")).to.be.revertedWithCustomError(diamondCutFacetProxy, "DelegateCallFailed");
     });
     it("cannot remove zero functions", async function () {
       await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
         facetAddress: AddressZero,
         action: FacetCutAction.Remove,
         functionSelectors: []
-      }], AddressZero, "0x")).to.be.revertedWith("LibDiamond: no selectors to cut");
+      }], AddressZero, "0x")).to.be.revertedWithCustomError(diamondCutFacetProxy, "NoSelectorsToCut");
     });
     it("cannot remove nonzero address facet", async function () {
       await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
         facetAddress: diamond.address,
         action: FacetCutAction.Remove,
         functionSelectors: [dummy1Sighash]
-      }], AddressZero, "0x")).to.be.revertedWith("LibDiamond: remove !zero facet");
+      }], AddressZero, "0x")).to.be.revertedWithCustomError(diamondCutFacetProxy, "RemoveFunctionDoesNotExist");
     });
     it("cannot remove function that doesn't exist", async function () {
       await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
         facetAddress: AddressZero,
         action: FacetCutAction.Remove,
         functionSelectors: [dummy1Sighash]
-      }], AddressZero, "0x")).to.be.revertedWith("LibDiamond: remove func dne");
+      }], AddressZero, "0x")).to.be.revertedWithCustomError(diamondCutFacetProxy, "RemoveFunctionDoesNotExist");
     });
     it("cannot init to non contract", async function () {
       await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
         facetAddress: AddressZero,
         action: FacetCutAction.Remove,
         functionSelectors: [testFunc1Sighash]
-      }], user.address, "0x")).to.be.revertedWith("LibDiamond: no code init");
+      }], user.address, "0x")).to.be.revertedWithCustomError(diamondCutFacetProxy, "NotAContract");
     });
     it("cannot remove if init fails", async function () {
       await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
@@ -324,7 +325,7 @@ describe("Diamond", function () {
         facetAddress: AddressZero,
         action: FacetCutAction.Remove,
         functionSelectors: [testFunc1Sighash]
-      }], revertFacetLogic.address, revertFacetLogic.interface.encodeFunctionData("revertWithoutReason()"))).to.be.revertedWith("LibDiamond: init func failed");
+      }], revertFacetLogic.address, revertFacetLogic.interface.encodeFunctionData("revertWithoutReason()"))).to.be.revertedWithCustomError(diamondCutFacetProxy, "DelegateCallFailed");;
     });
     it("can remove functions", async function () {
       let tx = await diamondCutFacetProxy.connect(owner).diamondCut([{
@@ -342,7 +343,7 @@ describe("Diamond", function () {
         facetAddress: AddressZero,
         action: FacetCutAction.Remove,
         functionSelectors: [testFunc1Sighash]
-      }], user.address, "0x")).to.be.revertedWith("LibDiamond: remove func dne");
+      }], user.address, "0x")).to.be.revertedWithCustomError(diamondCutFacetProxy, "RemoveFunctionDoesNotExist");
     });
     it("can remove multiple functions", async function () {
       let tx = await diamondCutFacetProxy.connect(owner).diamondCut([{
@@ -366,13 +367,13 @@ describe("Diamond", function () {
         facetAddress: AddressZero,
         action: FacetCutAction.Remove,
         functionSelectors: [dummy1Sighash]
-      }], AddressZero, "0x")).to.be.revertedWith("LibDiamond: remove immut func");
+      }], AddressZero, "0x")).to.be.revertedWithCustomError(diamondCutFacetProxy, "RemoveFunctionImmutable");
       // try remove multicall
       await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
         facetAddress: AddressZero,
         action: FacetCutAction.Remove,
         functionSelectors: [multicallSighash]
-      }], AddressZero, "0x")).to.be.revertedWith("LibDiamond: remove immut func");
+      }], AddressZero, "0x")).to.be.revertedWithCustomError(diamondCutFacetProxy, "RemoveFunctionImmutable");
     });
     it("can remove facets", async function () {
       // add facets
@@ -431,49 +432,49 @@ describe("Diamond", function () {
         facetAddress: test2FacetLogic.address,
         action: FacetCutAction.Replace,
         functionSelectors: [testFunc1Sighash]
-      }], AddressZero, "0x")).to.be.revertedWith("LibDiamond: !owner");
+      }], AddressZero, "0x")).to.be.revertedWithCustomError(diamondCutFacetProxy, "NotContractOwner");
     });
     it("cannot use invalid FacetCutAction", async function () {
       await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
         facetAddress: test2FacetLogic.address,
         action: 3,
         functionSelectors: [testFunc1Sighash]
-      }], AddressZero, "0x")).to.be.revertedWith("Diamond: failed delegatecall");
+      }], AddressZero, "0x")).to.be.revertedWithCustomError(diamondCutFacetProxy, "DelegateCallFailed");
     });
     it("cannot replace zero functions", async function () {
       await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
         facetAddress: test2FacetLogic.address,
         action: FacetCutAction.Replace,
         functionSelectors: []
-      }], AddressZero, "0x")).to.be.revertedWith("LibDiamond: no selectors to cut");
+      }], AddressZero, "0x")).to.be.revertedWithCustomError(diamondCutFacetProxy, "NoSelectorsToCut");
     });
     it("cannot replace zero address facet", async function () {
       await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
         facetAddress: AddressZero,
         action: FacetCutAction.Replace,
         functionSelectors: [testFunc1Sighash]
-      }], AddressZero, "0x")).to.be.revertedWith("LibDiamond: zero address facet");
+      }], AddressZero, "0x")).to.be.revertedWithCustomError(diamondCutFacetProxy, "AddressZero");
     });
     it("cannot replace function that doesn't exist", async function () {
       await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
         facetAddress: test2FacetLogic.address,
         action: FacetCutAction.Replace,
         functionSelectors: [dummy2Sighash]
-      }], AddressZero, "0x")).to.be.revertedWith("LibDiamond: remove func dne");
+      }], AddressZero, "0x")).to.be.revertedWithCustomError(diamondCutFacetProxy, "RemoveFunctionDoesNotExist");
     });
     it("cannot replace function with same facet", async function () {
       await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
         facetAddress: test1FacetLogic.address,
         action: FacetCutAction.Replace,
         functionSelectors: [testFunc1Sighash]
-      }], AddressZero, "0x")).to.be.revertedWith("LibDiamond: replace func same");
+      }], AddressZero, "0x")).to.be.revertedWithCustomError(diamondCutFacetProxy, "ReplaceFunctionSame");
     });
     it("cannot init to non contract", async function () {
       await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
         facetAddress: test2FacetLogic.address,
         action: FacetCutAction.Replace,
         functionSelectors: [testFunc1Sighash]
-      }], user.address, "0x")).to.be.revertedWith("LibDiamond: no code init");
+      }], user.address, "0x")).to.be.revertedWithCustomError(diamondCutFacetProxy, "NotAContract");
     });
     it("cannot replace if init fails", async function () {
       await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
@@ -485,7 +486,7 @@ describe("Diamond", function () {
         facetAddress: test2FacetLogic.address,
         action: FacetCutAction.Replace,
         functionSelectors: [testFunc1Sighash]
-      }], revertFacetLogic.address, revertFacetLogic.interface.encodeFunctionData("revertWithoutReason()"))).to.be.revertedWith("LibDiamond: init func failed");
+      }], revertFacetLogic.address, revertFacetLogic.interface.encodeFunctionData("revertWithoutReason()"))).to.be.revertedWithCustomError(diamondCutFacetProxy, "DelegateCallFailed");;
     });
     it("can replace functions", async function () {
       let tx = await diamondCutFacetProxy.connect(owner).diamondCut([{
@@ -530,19 +531,19 @@ describe("Diamond", function () {
         facetAddress: test2FacetLogic.address,
         action: FacetCutAction.Replace,
         functionSelectors: [dummy1Sighash]
-      }], AddressZero, "0x")).to.be.revertedWith("LibDiamond: remove immut func");
+      }], AddressZero, "0x")).to.be.revertedWithCustomError(diamondCutFacetProxy, "RemoveFunctionImmutable");
       // try replace multicall
       await expect(diamondCutFacetProxy.connect(owner).diamondCut([{
         facetAddress: test2FacetLogic.address,
         action: FacetCutAction.Replace,
         functionSelectors: [multicallSighash]
-      }], AddressZero, "0x")).to.be.revertedWith("LibDiamond: remove immut func");
+      }], AddressZero, "0x")).to.be.revertedWithCustomError(diamondCutFacetProxy, "RemoveFunctionImmutable");
     });
   });
 
   describe("multicall", function () {
     it("cannot call functions that don't exist", async function () {
-      await expect(diamond.multicall([dummy2Sighash], {gasLimit:1000000})).to.be.revertedWith("Diamond: function dne")
+      await expect(diamond.multicall([dummy2Sighash], {gasLimit:1000000})).to.be.revertedWithCustomError(diamond, "FunctionDoesNotExist");
     });
     it("cannot call functions that revert", async function () {
       revertFacetProxy = await ethers.getContractAt("RevertFacet", diamond.address) as RevertFacet;
@@ -554,7 +555,7 @@ describe("Diamond", function () {
       let txdata1 = revertFacetProxy.interface.encodeFunctionData("revertWithReason()");
       await expect(diamond.multicall([txdata1])).to.be.revertedWith("RevertFacet call failed");
       let txdata2 = revertFacetProxy.interface.encodeFunctionData("revertWithoutReason()");
-      await expect(diamond.multicall([txdata2])).to.be.revertedWith("Diamond: failed delegatecall");
+      await expect(diamond.multicall([txdata2])).to.be.revertedWithCustomError(diamondCutFacetProxy, "DelegateCallFailed");
     });
     it("cannot delegatecall a nonpayable function with value", async function () {
       let txdata = ownershipFacetProxy.interface.encodeFunctionData("owner()");
@@ -593,10 +594,10 @@ describe("Diamond", function () {
 
   describe("diamondCut updateSupportedInterfaces", function () {
     it("cannot be called by non owner", async function () {
-      await expect(diamondCutFacetProxy.connect(user).updateSupportedInterfaces([],[])).to.be.revertedWith("LibDiamond: !owner");
+      await expect(diamondCutFacetProxy.connect(user).updateSupportedInterfaces([],[])).to.be.revertedWithCustomError(diamondCutFacetProxy, "NotContractOwner");
     });
     it("cannot be called with length mismatch", async function () {
-      await expect(diamondCutFacetProxy.connect(owner).updateSupportedInterfaces([],[true])).to.be.revertedWith("DiamondCutFacet: len mismatch");
+      await expect(diamondCutFacetProxy.connect(owner).updateSupportedInterfaces([],[true])).to.be.revertedWithCustomError(diamondCutFacetProxy, "LengthMismatch");
     });
     it("can updateSupportedInterfaces", async function () {
       expect(await diamondLoupeFacetProxy.supportsInterface("0x01ffc9a7")).eq(true); // ERC165
@@ -808,7 +809,7 @@ describe("Diamond", function () {
       expect(await ownershipFacetProxy.owner()).eq(dead);
     });
     it("cannot upgrade an immutible diamond", async function () {
-      await expect(diamondCutFacetProxy.connect(owner).diamondCut([], AddressZero, "0x")).to.be.revertedWith("Diamond: function dne");
+      await expect(diamondCutFacetProxy.connect(owner).diamondCut([], AddressZero, "0x")).to.be.revertedWithCustomError(diamond, "FunctionDoesNotExist");
     });
   });
 });

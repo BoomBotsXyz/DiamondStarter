@@ -2,6 +2,8 @@
 pragma solidity 0.8.24;
 
 import { IDiamondCut } from "./../interfaces/IDiamondCut.sol";
+import { Calls } from "./Calls.sol";
+import { Errors } from "./Errors.sol";
 
 
 /**
@@ -73,7 +75,7 @@ library LibDiamond {
      * @notice Reverts if `msg.sender` is not the contract owner.
      */
     function enforceIsContractOwner() internal view {
-        require(msg.sender == diamondStorage().contractOwner, "LibDiamond: !owner");
+        if(msg.sender != diamondStorage().contractOwner) revert Errors.NotContractOwner();
     }
 
     /**
@@ -128,8 +130,8 @@ library LibDiamond {
      * @param _functionSelectors The function selectors to add to this diamond.
      */
     function addFunctions(address _facetAddress, bytes4[] memory _functionSelectors) internal {
-        require(_functionSelectors.length > 0, "LibDiamond: no selectors to cut");
-        require(_facetAddress != address(0), "LibDiamond: zero address facet");
+        if(_functionSelectors.length == 0) revert Errors.NoSelectorsToCut();
+        if(_facetAddress == address(0)) revert Errors.AddressZero();
         DiamondStorage storage ds = diamondStorage();
         uint256 selectorPosition256 = ds.facetFunctionSelectors[_facetAddress].functionSelectors.length;
         uint96 selectorPosition96 = uint96(selectorPosition256);
@@ -140,7 +142,7 @@ library LibDiamond {
         for (uint256 selectorIndex = 0; selectorIndex < _functionSelectors.length; ) {
             bytes4 selector = _functionSelectors[selectorIndex];
             address oldFacetAddress = ds.selectorToFacetAndPosition[selector].facetAddress;
-            require(oldFacetAddress == address(0), "LibDiamond: add duplicate func");
+            if(oldFacetAddress != address(0)) revert Errors.AddFunctionDuplicate();
             addFunction(ds, selector, selectorPosition96, _facetAddress);
             unchecked { selectorPosition96++; }
             unchecked { selectorIndex++; }
@@ -153,8 +155,8 @@ library LibDiamond {
      * @param _functionSelectors The function selectors to replace on this diamond.
      */
     function replaceFunctions(address _facetAddress, bytes4[] memory _functionSelectors) internal {
-        require(_functionSelectors.length > 0, "LibDiamond: no selectors to cut");
-        require(_facetAddress != address(0), "LibDiamond: zero address facet");
+        if(_functionSelectors.length == 0) revert Errors.NoSelectorsToCut();
+        if(_facetAddress == address(0)) revert Errors.AddressZero();
         DiamondStorage storage ds = diamondStorage();
         uint256 selectorPosition256 = ds.facetFunctionSelectors[_facetAddress].functionSelectors.length;
         uint96 selectorPosition96 = uint96(selectorPosition256);
@@ -165,7 +167,7 @@ library LibDiamond {
         for (uint256 selectorIndex = 0; selectorIndex < _functionSelectors.length; ) {
             bytes4 selector = _functionSelectors[selectorIndex];
             address oldFacetAddress = ds.selectorToFacetAndPosition[selector].facetAddress;
-            require(oldFacetAddress != _facetAddress, "LibDiamond: replace func same");
+            if(oldFacetAddress == _facetAddress) revert Errors.ReplaceFunctionSame();
             removeFunction(ds, oldFacetAddress, selector);
             addFunction(ds, selector, selectorPosition96, _facetAddress);
             unchecked { selectorPosition96++; }
@@ -179,8 +181,8 @@ library LibDiamond {
      * @param _functionSelectors The function selectors to remove from this diamond.
      */
     function removeFunctions(address _facetAddress, bytes4[] memory _functionSelectors) internal {
-        require(_functionSelectors.length > 0, "LibDiamond: no selectors to cut");
-        require(_facetAddress == address(0), "LibDiamond: remove !zero facet");
+        if(_functionSelectors.length == 0) revert Errors.NoSelectorsToCut();
+        if(_facetAddress != address(0)) revert Errors.RemoveFunctionDoesNotExist();
         DiamondStorage storage ds = diamondStorage();
         // if function does not exist then do nothing and return
         for (uint256 selectorIndex = 0; selectorIndex < _functionSelectors.length; ) {
@@ -197,7 +199,7 @@ library LibDiamond {
      * @param _facetAddress The address of the facet to add.
      */
     function addFacet(DiamondStorage storage ds, address _facetAddress) internal {
-        enforceHasContractCode(_facetAddress, "LibDiamond: no code add");
+        Calls.verifyHasCode(_facetAddress);
         ds.facetFunctionSelectors[_facetAddress].facetAddressPosition = ds.facetAddresses.length;
         ds.facetAddresses.push(_facetAddress);
     }
@@ -222,9 +224,9 @@ library LibDiamond {
      * @param _selector The function selector to add to this diamond.
      */
     function removeFunction(DiamondStorage storage ds, address _facetAddress, bytes4 _selector) internal {
-        require(_facetAddress != address(0), "LibDiamond: remove func dne");
+        if(_facetAddress == address(0)) revert Errors.RemoveFunctionDoesNotExist();
         // an immutable function is a function defined directly in a diamond
-        require(_facetAddress != address(this), "LibDiamond: remove immut func");
+        if(_facetAddress == address(this)) revert Errors.RemoveFunctionImmutable();
         // replace selector with last selector, then delete last selector
         uint256 selectorPosition = ds.selectorToFacetAndPosition[_selector].functionSelectorPosition;
         uint256 lastSelectorPosition = ds.facetFunctionSelectors[_facetAddress].functionSelectors.length - 1;
@@ -265,51 +267,7 @@ library LibDiamond {
         if (_init == address(0)) {
             return;
         }
-        enforceHasContractCode(_init, "LibDiamond: no code init");
-        functionDelegateCall(_init, _calldata);
-    }
-
-    /**
-     * @notice Reverts execution if the address has no code.
-     * @param _contract The address to query code.
-     * @param _errorMessage The revert message.
-     */
-    function enforceHasContractCode(address _contract, string memory _errorMessage) internal view {
-        uint256 contractSize;
-        // solhint-disable-next-line no-inline-assembly
-        assembly {
-            contractSize := extcodesize(_contract)
-        }
-        require(contractSize > 0, _errorMessage);
-    }
-
-    /**
-     * @notice Safely performs a Solidity function call using a low level `delegatecall`.
-     * @dev If `target` reverts with a revert reason, it is bubbled up by this function.
-     * @param target The address of the contract to `delegatecall`.
-     * @param data The data to pass to the target.
-     * @return result The result of the function call.
-     */
-    function functionDelegateCall(
-        address target,
-        bytes memory data
-    ) internal returns (bytes memory result) {
-        // solhint-disable-next-line avoid-low-level-calls
-        (bool success, bytes memory returndata) = target.delegatecall(data);
-        if(success) {
-            return returndata;
-        } else {
-            // look for revert reason and bubble it up if present
-            if(returndata.length > 0) {
-                // the easiest way to bubble the revert reason is using memory via assembly
-                // solhint-disable-next-line no-inline-assembly
-                assembly {
-                    let returndata_size := mload(returndata)
-                    revert(add(32, returndata), returndata_size)
-                }
-            } else {
-                revert("LibDiamond: init func failed");
-            }
-        }
+        Calls.verifyHasCode(_init);
+        Calls.functionDelegateCall(_init, _calldata);
     }
 }

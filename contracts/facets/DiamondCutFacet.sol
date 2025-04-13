@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import { IDiamondCutFacet } from "./../interfaces/facets/IDiamondCutFacet.sol";
 import { LibDiamond } from "./../libraries/LibDiamond.sol";
+import { Errors } from "./../libraries/Errors.sol";
 
 
 /**
@@ -40,7 +41,7 @@ contract DiamondCutFacet is IDiamondCutFacet {
      */
     function updateSupportedInterfaces(bytes4[] calldata interfaceIDs, bool[] calldata support) external payable override {
         LibDiamond.enforceIsContractOwner();
-        require(interfaceIDs.length == support.length, "DiamondCutFacet: len mismatch");
+        if(interfaceIDs.length != support.length) revert Errors.LengthMismatch();
         LibDiamond.DiamondStorage storage ds = LibDiamond.diamondStorage();
         for(uint256 i = 0; i < interfaceIDs.length; ) {
             bytes4 interfaceID = interfaceIDs[i];
